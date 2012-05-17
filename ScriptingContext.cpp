@@ -84,10 +84,13 @@ void ScriptingContext::removeObject(int id)
     lua_settable(m_State, LUA_REGISTRYINDEX);
 }
 
-// TODO : replace by m_Objects[id] ?
 ScriptedObject *ScriptingContext::getObject(int id) const
 {
-    return m_Objects.find(id)->second;
+    std::map<int, ScriptedObject*>::iterator it =  m_Objects.find(id);
+    if(it != m_Objects.end())
+        return it->second;
+    else
+        return NULL;
 }
 
 int ScriptingContext::proxyGet(int id, lua_State *state)
@@ -129,6 +132,9 @@ int ScriptingContext::l_index(lua_State *state)
     int *ptr = (int*)lua_touserdata(state, 1);
     ScriptedObject *object = context->getObject(*ptr);
 
+    if(object == NULL)
+        luaL_error(state, "accessed an already destroyed C++ object");
+
     if(lua_isstring(state, 2))
     {
         std::string key = lua_tostring(state, 2);
@@ -161,6 +167,9 @@ int ScriptingContext::l_newindex(lua_State *state)
     // __newindex(userdata, key, value)
     int *ptr = (int*)lua_touserdata(state, 1);
     ScriptedObject *object = context->getObject(*ptr);
+
+    if(object == NULL)
+        luaL_error(state, "accessed an already destroyed C++ object");
 
     if(lua_isstring(state, 2))
     {
