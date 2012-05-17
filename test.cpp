@@ -1,3 +1,5 @@
+#include <cstdio>
+
 #include "ScriptedObject.h"
 #include "ScriptingContext.h"
 
@@ -7,8 +9,8 @@ private:
     int a;
 
 public:
-    Test(ScriptingContext *context, int p)
-      : ScriptedObject(context), a(p)
+    Test(int p)
+      : a(p)
     {
     }
 
@@ -21,13 +23,17 @@ protected:
             {
                 a = lua_tointeger(state, 1);
                 printf("Test::set_property(): a set to %d\n", a);
+                return ;
             }
         }
         else if(prop == "b")
         {
             if(lua_isstring(state, 1))
+            {
                 printf("Test::set_property(): b set to %s\n",
                         lua_tostring(state, 1));
+                return ;
+            }
         }
         else
             luaL_error(state, "Test::set_property(): unknown property %s\n",
@@ -78,10 +84,55 @@ protected:
 
 };
 
+ScriptingContext *script = NULL;
+Test *test = NULL;
+
+int l_test(lua_State*)
+{
+    script->pushObject(test);
+    return 1;
+}
+
 int main()
 {
-    ScriptingContext script;
-    Test t(&script, 1);
+    // Create a context
+    script = new ScriptingContext();
+
+    // Create an object
+    test = new Test(1);
+
+    // Add a global function in the context
+    {
+        lua_State *state = script->getState();
+        lua_pushstring(state, "foo");
+        lua_pushcfunction(state, l_test);
+        lua_settable(state, LUA_GLOBALSINDEX);
+    }
+
+    // Execute some code
+    {
+        lua_State *state = script->getState();
+        luaL_loadstring(
+                state,
+                "t = foo()\n"
+                "print(t.p_a)\n"
+                "--t.m_print()\n"
+                "t.p_a = 12\n"
+                "print(t.p_a)\n"
+                "--t.m_print()\n"
+                "t.p_b = 5\n"
+                "print(t.p_b)\n"
+                "t = foo()\n"
+                "print(t.p_a)\n"
+                "--t.m_print()\n");
+        if(lua_isstring(state, -1))
+            printf("str: %s\n", lua_tostring(state, -1));
+        else
+            lua_call(state, 0, 0);
+    }
+
+    delete test;
+    delete script;
 
     return 0;
 }

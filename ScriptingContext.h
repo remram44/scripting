@@ -5,12 +5,12 @@
 
 #include "lua.hpp"
 
-class ScriptedObject;
+#include "ScriptedObject.h"
 
 /**
  * The only scripting context used with ScriptedObject (singleton).
  */
-class ScriptingContext {
+class ScriptingContext : private ScriptedObject::DestructionListener {
 
 private:
     lua_State *m_State;
@@ -29,12 +29,14 @@ private:
 
     ScriptedObject *getObject(int id) const;
 
+    int proxyGet(int id, lua_State *state);
+    void proxySet(int id, lua_State *state);
+
 private:
     friend class ScriptedObject;
 
     /* accessed by ScriptedObject */
-    void addObject(int id, ScriptedObject *object);
-    void removeObject(int id);
+    void objectDestroyed(ScriptedObject *object);
 
 public:
     /**
@@ -49,8 +51,12 @@ public:
 
     lua_State *getState() const;
 
-    int proxyGet(int id, lua_State *state);
-    void proxySet(int id, lua_State *state);
+    /**
+     * Push the given object on this context's stack.
+     *
+     * This might create a wrapper if one doesn't exist yet.
+     */
+    void pushObject(ScriptedObject *object);
 
 };
 

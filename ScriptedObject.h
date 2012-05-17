@@ -2,12 +2,11 @@
 #define SCRIPTEDOBJECT_H
 
 #include <string>
+#include <set>
 
 #include "lua.hpp"
 
 struct lua_State;
-
-class ScriptingContext;
 
 /**
  * A scripted object, i.e. that exists in the script context.
@@ -23,14 +22,26 @@ class ScriptingContext;
  */
 class ScriptedObject {
 
+public:
+    class DestructionListener {
+
+    public:
+        virtual ~DestructionListener() {}
+        virtual void objectDestroyed(ScriptedObject *object) = 0;
+
+    };
+
 private:
     static int id;
     /** The ID of this object, used to identify it from the script context. */
     unsigned int m_ID;
-    // TODO : remove the IDs and use the object pointers directly
 
-    /** The ScriptingContext this object is associated to. */
-    ScriptingContext *const m_Context;
+    /**
+     * The ScriptingContext's this object is associated to.
+     *
+     * We'll have to notify them when we are destroyed.
+     */
+    std::set<DestructionListener*> m_Listeners;
 
 public:
     /**
@@ -39,7 +50,7 @@ public:
      * Assigns an ID to this object and creates its counterpart in the script
      * context.
      */
-    ScriptedObject(ScriptingContext *context);
+    ScriptedObject();
 
     /**
      * Destructor.
@@ -47,6 +58,8 @@ public:
      * Renders this object inaccessible from the script context.
      */
     virtual ~ScriptedObject();
+
+    void registerDestructionListener(DestructionListener *listener);
 
     /**
      * Abstract method used to set the value of a property from a script.
@@ -73,6 +86,9 @@ public:
      * @return The number of values to be returned.
      */
     virtual int call_method(const std::string &method, lua_State *state) = 0;
+
+    inline unsigned int getID() const
+    { return m_ID; }
 
 };
 

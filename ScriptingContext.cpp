@@ -43,36 +43,50 @@ lua_State *ScriptingContext::getState() const
     return m_State;
 }
 
-void ScriptingContext::addObject(int id, ScriptedObject *object)
+void ScriptingContext::pushObject(ScriptedObject *object)
 {
-    m_Objects[id] = object;
+    unsigned int id = object->getID();
 
-    // registry[id] = userdata(id)
+    // If we haven't yet created a wrapper for this object, do it
+    if(!getObject(id))
+    {
+        m_Objects[id] = object;
+
+        // registry[id] = userdata(id)
+        lua_pushinteger(m_State, id);
+
+            // Create the userdata
+            int* ptr = (int*)
+                    lua_newuserdata(m_State, sizeof(int));
+            *ptr = id;
+
+            // Set the metatable
+
+                // Get the metatable from the registry
+                lua_pushstring(m_State, "mt");
+                lua_gettable(m_State, LUA_REGISTRYINDEX);
+
+            lua_setmetatable(m_State, -2);
+
+        lua_settable(m_State, LUA_REGISTRYINDEX);
+
+        // registry[id | 0x40000000] = proxy_table
+        lua_pushinteger(m_State, proxy_table(id));
+        lua_newtable(m_State);
+        lua_settable(m_State, LUA_REGISTRYINDEX);
+
+        object->registerDestructionListener(this);
+    }
+
+    // Find the object in the registry and place it on the context's stack
     lua_pushinteger(m_State, id);
-
-        // Create the userdata
-        int* ptr = (int*)
-                lua_newuserdata(m_State, sizeof(int));
-        *ptr = id;
-
-        // Set the metatable
-
-            // Get the metatable from the registry
-            lua_pushstring(m_State, "mt");
-            lua_gettable(m_State, LUA_REGISTRYINDEX);
-
-        lua_setmetatable(m_State, -2);
-
-    lua_settable(m_State, LUA_REGISTRYINDEX);
-
-    // registry[id | 0x40000000] = proxy_table
-    lua_pushinteger(m_State, proxy_table(id));
-    lua_newtable(m_State);
-    lua_settable(m_State, LUA_REGISTRYINDEX);
+    lua_gettable(m_State, LUA_REGISTRYINDEX);
 }
 
-void ScriptingContext::removeObject(int id)
+void ScriptingContext::objectDestroyed(ScriptedObject *object)
 {
+    unsigned int id = object->getID();
+
     // Forget the object
     lua_pushinteger(m_State, id);
     lua_pushnil(m_State);
@@ -86,7 +100,7 @@ void ScriptingContext::removeObject(int id)
 
 ScriptedObject *ScriptingContext::getObject(int id) const
 {
-    std::map<int, ScriptedObject*>::iterator it =  m_Objects.find(id);
+    std::map<int, ScriptedObject*>::const_iterator it =  m_Objects.find(id);
     if(it != m_Objects.end())
         return it->second;
     else
@@ -127,6 +141,7 @@ int ScriptingContext::l_index(lua_State *state)
     lua_pushstring(state, "sc");
     lua_gettable(state, LUA_REGISTRYINDEX);
     ScriptingContext *context = (ScriptingContext*)lua_touserdata(state, -1);
+    lua_pop(state, 1);
 
     // __index(userdata, key)
     int *ptr = (int*)lua_touserdata(state, 1);
@@ -143,7 +158,7 @@ int ScriptingContext::l_index(lua_State *state)
         {
             // Create another empty state on which to write the value to be returned
             lua_State *state2 = lua_newthread(state);
-            object->get_property(key, state2);
+            object->get_property(key.substr(2), state2);
             lua_xmove(state2, state, 1);
             return 1;
         }
@@ -163,6 +178,7 @@ int ScriptingContext::l_newindex(lua_State *state)
     lua_pushstring(state, "sc");
     lua_gettable(state, LUA_REGISTRYINDEX);
     ScriptingContext *context = (ScriptingContext*)lua_touserdata(state, -1);
+    lua_pop(state, 1);
 
     // __newindex(userdata, key, value)
     int *ptr = (int*)lua_touserdata(state, 1);
@@ -181,7 +197,7 @@ int ScriptingContext::l_newindex(lua_State *state)
             lua_State *state2 = lua_newthread(state);
             lua_pushvalue(state, -2);
             lua_xmove(state, state2, 1);
-            object->set_property(key, state2);
+            object->set_property(key.substr(2), state2);
         }
         else if(key.substr(0, 2) == "m_") // Method, can't assign!
             luaL_error(state, "Attempted to assign a method!");

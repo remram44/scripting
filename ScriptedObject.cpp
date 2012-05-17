@@ -1,15 +1,21 @@
 #include "ScriptedObject.h"
-#include "ScriptingContext.h"
 
 int ScriptedObject::id = 0;
 
-ScriptedObject::ScriptedObject(ScriptingContext *context)
- :  m_ID(id++), m_Context(context)
+ScriptedObject::ScriptedObject()
+ :  m_ID(id++)
 {
-    context->addObject(m_ID, this);
 }
 
 ScriptedObject::~ScriptedObject()
 {
-    m_Context->removeObject(m_ID);
+    std::set<ScriptedObject::DestructionListener*>::iterator it;
+    it = m_Listeners.begin();
+    for(; it != m_Listeners.end(); ++it)
+        (*it)->objectDestroyed(this);
+}
+
+void ScriptedObject::registerDestructionListener(DestructionListener *listener)
+{
+    m_Listeners.insert(listener);
 }

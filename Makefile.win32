@@ -18,3 +18,9 @@ test.exe: test.o ScriptedObject.o ScriptingContext.o
 # Clean up object files
 clean:
 	$(RM) *.o
+
+
+test.o: test.cpp ScriptedObject.h lua.hpp ScriptingContext.h
+ScriptedObject.o: ScriptedObject.cpp ScriptedObject.h lua.hpp
+ScriptingContext.o: ScriptingContext.cpp ScriptingContext.h lua.hpp \
+ ScriptedObject.h
