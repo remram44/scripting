@@ -18,6 +18,14 @@ private:
 
 private:
     /**
+     * Lua closure used as proxy for a C++ method.
+     *
+     * Retrieve the object and method name from its upvalues and calls
+     * ScriptedObject::call_method().
+     */
+    static int l_function(lua_State *state);
+
+    /**
      * Lua __index metamethod, used to read the members of the object.
      */
     static int l_index(lua_State *state);

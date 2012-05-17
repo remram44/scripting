@@ -116,15 +116,15 @@ int main()
                 state,
                 "t = foo()\n"
                 "print(t.p_a)\n"
-                "--t.m_print()\n"
+                "t:m_print()\n"
                 "t.p_a = 12\n"
                 "print(t.p_a)\n"
-                "--t.m_print()\n"
+                "t:m_print()\n"
                 "t.p_b = 5\n"
                 "print(t.p_b)\n"
                 "t = foo()\n"
                 "print(t.p_a)\n"
-                "--t.m_print()\n");
+                "t:m_print()\n");
         if(lua_isstring(state, -1))
             printf("str: %s\n", lua_tostring(state, -1));
         else

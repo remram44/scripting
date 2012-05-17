@@ -136,6 +136,60 @@ void ScriptingContext::proxySet(int id, lua_State *state)
     lua_settable(state, -3);
 }
 
+int ScriptingContext::l_function(lua_State *state)
+{
+    // ID of the object
+    unsigned int id = lua_tointeger(state, lua_upvalueindex(1));
+
+    // Context
+    lua_pushstring(state, "sc");
+    lua_gettable(state, LUA_REGISTRYINDEX);
+    ScriptingContext *context = (ScriptingContext*)lua_touserdata(state, -1);
+    lua_pop(state, 1);
+
+    // Retrieve the object
+    ScriptedObject *object = context->getObject(id);
+    if(object == NULL)
+        // This is actually weird, because it would have been deleted between
+        // the method was read and its actual call
+        // It means the script store the method somewhere and called it later
+        luaL_error(state, "calling method on already destroyed C++ object");
+
+    // Check the first parameter, which should be the object
+    if(lua_gettop(state) < 1)
+        luaL_error(state,
+                "calling method with no argument - did you use '.' instead of "
+                "':'?");
+    int *arg0 = (int*)lua_touserdata(state, 1);
+    if(arg0 == NULL)
+        luaL_error(state, "calling method on unknown object");
+    if(*arg0 != id)
+        luaL_error(state, "calling method on different object");
+
+    // Retrieve the method name
+    const char *method = lua_tostring(state, lua_upvalueindex(2));
+
+    // Prepare a different state on which to pass the argument and retrieve
+    // the results
+    // We don't want call_method() to get the userdata...
+    int argc = lua_gettop(state) - 1;
+    lua_State *state2 = lua_newthread(state);
+    lua_xmove(state, state2, argc);
+
+    // Actual call
+    int nret = object->call_method(method, state2);
+
+    // Move the return values back on the state and return
+    if(lua_gettop(state2) < nret)
+        luaL_error(
+                state,
+                "error in C++ code: %d values to be returned but only %d on "
+                "the stack",
+                nret, lua_gettop(state2));
+    lua_xmove(state2, state, nret);
+    return nret;
+}
+
 int ScriptingContext::l_index(lua_State *state)
 {
     lua_pushstring(state, "sc");
@@ -152,21 +206,41 @@ int ScriptingContext::l_index(lua_State *state)
 
     if(lua_isstring(state, 2))
     {
-        std::string key = lua_tostring(state, 2);
+        // Warning: we can't use longjmp() (and thus lua_error) if we have C++
+        // objects on the stack!
+        // We use a pointer to manually deallocate it before jumping
+        std::string *key = new std::string(lua_tostring(state, 2));
 
-        if(key.substr(0, 2) == "p_") // Property
+        if(key->substr(0, 2) == "p_") // Property
         {
             // Create another empty state on which to write the value to be returned
             lua_State *state2 = lua_newthread(state);
-            object->get_property(key.substr(2), state2);
+            object->get_property(key->substr(2), state2);
+            if(lua_gettop(state2) != 1)
+            {
+                lua_pushfstring(
+                        state,
+                        "error in C++ code: %d values returned by the object "
+                        "for property %s",
+                        lua_gettop(state2), key->substr(2).c_str()
+                        );
+                delete key;
+                lua_error(state);
+            }
             lua_xmove(state2, state, 1);
+            delete key;
             return 1;
         }
-        else if(key.substr(0, 2) == "m_") // Method
+        else if(key->substr(0, 2) == "m_") // Method
         {
-            lua_pushnil(state); // TODO
+            lua_pushinteger(state, object->getID());
+            lua_pushstring(state, key->substr(2).c_str());
+            lua_pushcclosure(state, ScriptingContext::l_function, 2);
+            delete key;
             return 1;
         }
+
+        delete key;
     }
 
     // Does not concern us, retrieve from the proxy table
