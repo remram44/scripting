@@ -6,11 +6,23 @@ static inline unsigned int proxy_table(unsigned int id)
     return id | 0x40000000;
 }
 
+ScriptingContext::ScriptingContext(lua_State *initial)
+{
+    m_State = initial;
+
+    setup();
+}
+
 ScriptingContext::ScriptingContext()
 {
     m_State = lua_open();
     luaL_openlibs(m_State);
 
+    setup();
+}
+
+void ScriptingContext::setup()
+{
     // registry["sc"] = lightuserdata(scriptingcontext)
     lua_pushstring(m_State, "sc");
     lua_pushlightuserdata(m_State, this);

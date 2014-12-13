@@ -46,11 +46,18 @@ private:
     /* accessed by ScriptedObject */
     void objectDestroyed(ScriptedObject *object);
 
+    void setup();
+
 public:
     /**
      * Constructor, creating the Lua context.
      */
     ScriptingContext();
+
+    /**
+      * Alternate constructor, getting a custom initial Lua context.
+      */
+    ScriptingContext(lua_State *initial);
 
     /**
      * Destructor, finalizing the Lua context.
