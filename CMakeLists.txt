@@ -1,0 +1,17 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+set(CMAKE_CXX_FLAGS "-Wall")
+set(CMAKE_C_FLAGS "-Wall")
+PROJECT(scripting)
+
+# Require Lua
+FIND_PACKAGE(Lua51 REQUIRED)
+MESSAGE(STATUS "Using Lua ${LUA_VERSION_STRING} (${LUA_INCLUDE_DIR})")
+INCLUDE_DIRECTORIES("${LUA_INCLUDE_DIR}")
+
+# Recursively build components
+ADD_SUBDIRECTORY(luacpp)
+
+# Build test program
+INCLUDE_DIRECTORIES("${LIBCPP_INCLUDE_DIR}")
+ADD_EXECUTABLE(test-scripting test.cpp)
+TARGET_LINK_LIBRARIES(test-scripting luacpp ${LUA_LIBRARIES})

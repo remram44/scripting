@@ -1,4 +1,4 @@
-#include "ScriptedObject.h"
+#include "luacpp/ScriptedObject.h"
 
 int ScriptedObject::id = 0;
 

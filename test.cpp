@@ -1,7 +1,7 @@
 #include <cstdio>
 
-#include "ScriptedObject.h"
-#include "ScriptingContext.h"
+#include "luacpp/ScriptedObject.h"
+#include "luacpp/ScriptingContext.h"
 
 class Test : public ScriptedObject {
 

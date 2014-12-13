@@ -1,5 +1,5 @@
-#include "ScriptingContext.h"
-#include "ScriptedObject.h"
+#include "luacpp/ScriptingContext.h"
+#include "luacpp/ScriptedObject.h"
 
 static inline unsigned int proxy_table(unsigned int id)
 {
